@@ -1,9 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from groq import Groq
 from config import SYSTEM_PROMPT
 
-# 🔐 .env load
 from dotenv import load_dotenv
 import os
 
@@ -14,14 +13,8 @@ client = Groq(api_key=api_key)
 
 MODEL = "llama-3.1-8b-instant"
 
-# 🚀 FastAPI app
-app = FastAPI(
-    title="AI Shopping Bot API",
-    description="Chatbot API using Groq",
-    version="1.0"
-)
+app = FastAPI()
 
-# 📩 Request body
 class ChatRequest(BaseModel):
     message: str
 
@@ -36,32 +29,39 @@ def chat_with_ai(user_input):
             ],
             temperature=0.7
         )
-
         return response.choices[0].message.content.strip()
 
     except Exception as e:
         print("DEBUG ERROR:", e)
-        return "⚠️ Konjam issue bro 😅 later try pannunga."
+        raise Exception("AI service error")
 
-# 🏠 Root route (IMPORTANT 🔥)
+# 🏠 Root
 @app.get("/")
 def home():
-    return {
-        "status": "success",
-        "message": "API is running 🚀",
-        "endpoint": "/chat"
-    }
+    return {"message": "API is running 🚀"}
 
-# ❤️ Health check (optional but useful)
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-# 💬 Chat API
+# 💬 Chat API with error handling
 @app.post("/chat")
 def chat_api(req: ChatRequest):
-    reply = chat_with_ai(req.message)
-    return {
-        "user_message": req.message,
-        "reply": reply
-    }
+    try:
+        # 🔹 empty check
+        if not req.message.strip():
+            raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+        reply = chat_with_ai(req.message)
+
+        return {
+            "success": True,
+            "reply": reply
+        }
+
+    except HTTPException as e:
+        # known errors
+        raise e
+
+    except Exception as e:
+        print("API ERROR:", e)
+        raise HTTPException(
+            status_code=500,
+            detail="Something went wrong. Please try again later."
+        )
