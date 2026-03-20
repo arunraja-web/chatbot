@@ -15,13 +15,17 @@ client = Groq(api_key=api_key)
 MODEL = "llama-3.1-8b-instant"
 
 # 🚀 FastAPI app
-app = FastAPI()
+app = FastAPI(
+    title="AI Shopping Bot API",
+    description="Chatbot API using Groq",
+    version="1.0"
+)
 
 # 📩 Request body
 class ChatRequest(BaseModel):
     message: str
 
-# 🤖 Same function (no change)
+# 🤖 AI function
 def chat_with_ai(user_input):
     try:
         response = client.chat.completions.create(
@@ -39,8 +43,25 @@ def chat_with_ai(user_input):
         print("DEBUG ERROR:", e)
         return "⚠️ Konjam issue bro 😅 later try pannunga."
 
-# 🌐 API endpoint
+# 🏠 Root route (IMPORTANT 🔥)
+@app.get("/")
+def home():
+    return {
+        "status": "success",
+        "message": "API is running 🚀",
+        "endpoint": "/chat"
+    }
+
+# ❤️ Health check (optional but useful)
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+# 💬 Chat API
 @app.post("/chat")
 def chat_api(req: ChatRequest):
     reply = chat_with_ai(req.message)
-    return {"reply": reply}
+    return {
+        "user_message": req.message,
+        "reply": reply
+    }
