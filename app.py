@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from groq import Groq
 from config import SYSTEM_PROMPT
@@ -15,6 +16,7 @@ MODEL = "llama-3.1-8b-instant"
 
 app = FastAPI()
 
+# 📩 Request model
 class ChatRequest(BaseModel):
     message: str
 
@@ -33,35 +35,41 @@ def chat_with_ai(user_input):
 
     except Exception as e:
         print("DEBUG ERROR:", e)
-        raise Exception("AI service error")
+        raise HTTPException(status_code=500, detail="AI service error")
+
+# 🌍 Global exception handler (🔥 important)
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,  # ✅ real HTTP status
+        content={
+            "status": exc.status_code,  # ✅ body la status
+            "success": False,
+            "message": exc.detail
+        }
+    )
 
 # 🏠 Root
 @app.get("/")
 def home():
-    return {"message": "API is running 🚀"}
+    return {
+        "status": 200,
+        "success": True,
+        "message": "API is running 🚀"
+    }
 
-# 💬 Chat API with error handling
+# 💬 Chat API
 @app.post("/chat")
 def chat_api(req: ChatRequest):
-    try:
-        # 🔹 empty check
-        if not req.message.strip():
-            raise HTTPException(status_code=400, detail="Message cannot be empty")
+    # ❗ validation
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-        reply = chat_with_ai(req.message)
+    reply = chat_with_ai(req.message)
 
-        return {
-            "success": True,
-            "reply": reply
-        }
-
-    except HTTPException as e:
-        # known errors
-        raise e
-
-    except Exception as e:
-        print("API ERROR:", e)
-        raise HTTPException(
-            status_code=500,
-            detail="Something went wrong. Please try again later."
-        )
+    return {
+        "status": 200,
+        "success": True,
+        "user_message": req.message,
+        "reply": reply
+    }
