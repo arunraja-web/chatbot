@@ -1,9 +1,9 @@
-from fastapi import FastAPI, HTTPException, status, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 from pydantic import BaseModel
 from groq import Groq
 from config import SYSTEM_PROMPT
 
+# 🔐 .env load
 from dotenv import load_dotenv
 import os
 
@@ -14,13 +14,15 @@ client = Groq(api_key=api_key)
 
 MODEL = "llama-3.1-8b-instant"
 
+# 🚀 FastAPI app
 app = FastAPI()
 
-# 📩 Request model
+# 📩 Request body (UPDATED)
 class ChatRequest(BaseModel):
     message: str
+    caption: str = ""   # 👈 caption support
 
-# 🤖 AI function
+# 🤖 LLM function (same logic)
 def chat_with_ai(user_input):
     try:
         response = client.chat.completions.create(
@@ -31,45 +33,32 @@ def chat_with_ai(user_input):
             ],
             temperature=0.7
         )
+
         return response.choices[0].message.content.strip()
 
     except Exception as e:
         print("DEBUG ERROR:", e)
-        raise HTTPException(status_code=500, detail="AI service error")
+        return "⚠️ Konjam issue 😅 later try pannunga."
 
-# 🌍 Global exception handler (🔥 important)
-@app.exception_handler(HTTPException)
-async def custom_http_exception_handler(request: Request, exc: HTTPException):
-    return JSONResponse(
-        status_code=exc.status_code,  # ✅ real HTTP status
-        content={
-            "status": exc.status_code,  # ✅ body la status
-            "success": False,
-            "message": exc.detail
-        }
-    )
-
-# 🏠 Root
-@app.get("/")
-def home():
-    return {
-        "status": 200,
-        "success": True,
-        "message": "API is running 🚀"
-    }
-
-# 💬 Chat API
+# 🌐 API endpoint (UPDATED)
 @app.post("/chat")
 def chat_api(req: ChatRequest):
-    # ❗ validation
-    if not req.message.strip():
-        raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-    reply = chat_with_ai(req.message)
+    # 🔥 Combine caption + comment
+    final_input = f"""
+Post Caption:
+{req.caption}
 
-    return {
-        "status": 200,
-        "success": True,
-        "user_message": req.message,
-        "reply": reply
-    }
+User Comment:
+{req.message}
+
+Instructions:
+- Understand the caption first
+- Then understand the comment
+- Give a relevant, short, friendly reply
+- Use same language as user
+"""
+
+    reply = chat_with_ai(final_input)
+
+    return {"reply": reply}
